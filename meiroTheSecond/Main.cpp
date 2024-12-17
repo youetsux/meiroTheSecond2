@@ -12,7 +12,8 @@ using dat = pair<int, Vec2>;
 const Size BLOCK_SIZE{ 32, 32 };
 const Size MazeSize{ 25, 19 };//サイズは奇数でなければいけない
 const Point Start{ 1,1 };
-const Point Goal{ MazeSize.x - 2,MazeSize.y - 2 };
+const Point Goal{ MazeSize.x - 2, MazeSize.y - 2 };
+const float Div{ 3.0 }; //何段階でウェイトを分割するか
 
 const Vec2 dirs[4]{ {0,1},{0,-1},{1,0},{-1,0} };
 
@@ -32,7 +33,7 @@ struct floorData
 //二次元配列　MazeData[MazeSize.y][MazeSize.x]{FLOORで初期化｝
 std::vector<std::vector<floorData>> MazeData(MazeSize.y, std::vector<floorData>(MazeSize.x, {FLOOR, 0}));
 std::vector<std::vector<int>> dist(MazeSize.y, std::vector<int>(MazeSize.x, INT_MAX));
-std::vector<std::vector<Vec2>> pre(MazeSize.y, std::vector<Vec2>(MazeSize.x, {0, 0}));
+std::vector<std::vector<Vec2>> pre(MazeSize.y, std::vector<Vec2>(MazeSize.x, {-1, -1}));
 //std::stack<Point> prStack;
 
 
@@ -51,7 +52,7 @@ void MakeMaze()
 		{
 			if (i == 0 || j == 0 || i == MazeSize.x - 1 || j == MazeSize.y - 1)
 				continue;
-			MazeData[j][i].weight = rand() % 10 + 1;
+			MazeData[j][i].weight = rand() % (int)(Div) + 1;
 		}
 	}
 }
@@ -104,7 +105,7 @@ void DrawMaze()
 				col = Palette::Firebrick;
 				break;
 			case FLOOR:
-				col = Color{ 0, (unsigned char)(255.0 * (MazeData[j][i].weight / 10.0)), 0 };
+				col = Color{ 0, (unsigned char)(255.0 * (1.0 - MazeData[j][i].weight / Div)), 0 };
 				break;
 			case START:
 			case GOAL:
@@ -151,12 +152,24 @@ void Dijkstra(pair<int, int> sp)
 			if (MazeData[np.second][np.first].type == WALL) continue;
 			if (dist[np.second][np.first] <= MazeData[np.second][np.first].weight + c) continue;
 			dist[np.second][np.first] = MazeData[np.second][np.first].weight + c;
+			pre[np.second][np.first] = Vec2(v.first, v.second);
 			pq.push(Mdat(dist[np.second][np.first], np));
 		}
 	}
 
 }
 
+std::vector<Vec2> restore(int tx, int ty) {
+	std::vector<Vec2> path;
+	int x = tx, y = ty;
+	for (; tx != -1 || ty != -1; tx = pre[y][x].x, ty = pre[y][x].y) {
+		path.push_back(Vec2(tx, ty));
+		x = (int)tx, y = (int)ty;
+	}
+	reverse(path.begin(), path.end());
+
+	return path;
+}
 
 
 void Main()
@@ -172,11 +185,15 @@ void Main()
 	SetSG();
 
 	Dijkstra({ Start.x, Start.y });
-
+	std::vector<Vec2> route = restore(Goal.x, Goal.y);
 	while (System::Update())
 	{
 		DrawMaze();
-
+		for (auto itr: route)
+		{
+			
+			Rect{(int)itr.x * BLOCK_SIZE.x, (int)itr.y * BLOCK_SIZE.y, BLOCK_SIZE }.drawFrame(3, Palette::Hotpink);
+		}
 	}
 }
 
